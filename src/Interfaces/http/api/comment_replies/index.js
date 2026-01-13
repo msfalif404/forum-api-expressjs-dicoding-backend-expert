@@ -1,10 +1,16 @@
+const express = require('express');
 const CommentReplyHandler = require('./handler');
-const routes = require('./routes');
+const authMiddleware = require('../../middleware/auth');
 
-module.exports = {
-  name: 'comment-replies',
-  register: async (server, { container }) => {
-    const commentReplyHandler = new CommentReplyHandler(container);
-    server.route(routes(commentReplyHandler));
-  },
+const routes = (container) => {
+    const router = express.Router();
+    const handler = new CommentReplyHandler(container);
+
+    // Note: These routes are mounted under /threads in createServer.js
+    router.post('/:threadId/comments/:commentId/replies', authMiddleware, handler.postCommentReplyHandler);
+    router.delete('/:threadId/comments/:commentId/replies/:commentReplyId', authMiddleware, handler.deleteCommentReplyHandler);
+
+    return router;
 };
+
+module.exports = routes;

@@ -14,6 +14,9 @@ describe('CommentRepositoryPostgres', () => {
   const threadId = 'thread-123';
 
   beforeAll(async () => {
+    await CommentsTableTestHelper.cleanTable();
+    await ThreadsTableTestHelper.cleanTable();
+    await UsersTableTestHelper.cleanTable();
     await UsersTableTestHelper.addUser({ id: userId });
     await ThreadsTableTestHelper.addThread({ id: threadId, user_id: userId });
   });

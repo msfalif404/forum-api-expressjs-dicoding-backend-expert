@@ -1,13 +1,7 @@
+const request = require('supertest');
 const pool = require('../../database/postgres/pool');
 const ThreadTableTestHelper = require('../../../../tests/ThreadTableTestHelper');
 const UsersTableTestHelper = require('../../../../tests/UsersTableTestHelper');
-const {
-  injection,
-  addUserOption,
-  addThreadOption,
-  addAuthOption,
-  addCommentOption,
-} = require('../../../../tests/ServerInjectionFunctionHelper');
 const CommentsTableTestHelper = require('../../../../tests/CommentsTableTestHelper');
 const container = require('../../container');
 const createServer = require('../createServer');
@@ -59,39 +53,30 @@ describe('/threads/{threadId}/comments endpoint', () => {
       };
 
       // Add account
-      await injection(server, addUserOption(userPayload));
+      await request(server).post('/users').send(userPayload);
 
       // login
-      const auth = await injection(server, addAuthOption(loginPayload));
-
-      const {
-        data: { accessToken },
-      } = JSON.parse(auth.payload);
+      const auth = await request(server).post('/authentications').send(loginPayload);
+      const { accessToken } = auth.body.data;
 
       // add thread
-      const thread = await injection(server, addThreadOption(threadPayload, accessToken));
+      const thread = await request(server)
+        .post('/threads')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send(threadPayload);
 
-      const {
-        data: {
-          addedThread: { id },
-        },
-      } = JSON.parse(thread.payload);
+      const { id } = thread.body.data.addedThread;
 
       // Action
-      const response = await server.inject({
-        method: 'POST',
-        url: `/threads/${id}/comments`,
-        payload: requestPayload,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await request(server)
+        .post(`/threads/${id}/comments`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send(requestPayload);
 
       //Assert
-      const responseJson = JSON.parse(response.payload);
       expect(response.statusCode).toEqual(201);
-      expect(responseJson.status).toEqual('success');
-      expect(responseJson.data.addedComment).toBeDefined();
+      expect(response.body.status).toEqual('success');
+      expect(response.body.data.addedComment).toBeDefined();
     });
   });
 
@@ -104,37 +89,33 @@ describe('/threads/{threadId}/comments endpoint', () => {
       };
 
       // Add account
-      await injection(server, addUserOption(userPayload));
+      await request(server).post('/users').send(userPayload);
 
       // login
-      const auth = await injection(server, addAuthOption(loginPayload));
-
-      const {
-        data: { accessToken },
-      } = JSON.parse(auth.payload);
+      const auth = await request(server).post('/authentications').send(loginPayload);
+      const { accessToken } = auth.body.data;
 
       // add thread
-      const thread = await injection(server, addThreadOption(threadPayload, accessToken));
+      const thread = await request(server)
+        .post('/threads')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send(threadPayload);
+      const threadId = thread.body.data.addedThread.id;
 
-      const threadId = JSON.parse(thread.payload).data.addedThread.id;
-
-      const commentAdded = await injection(server, addCommentOption(commentPayload, accessToken, threadId));
-
-      const commentId = JSON.parse(commentAdded.payload).data.addedComment.id;
+      const commentAdded = await request(server)
+        .post(`/threads/${threadId}/comments`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send(commentPayload);
+      const commentId = commentAdded.body.data.addedComment.id;
 
       // Action
-      const response = await server.inject({
-        method: 'DELETE',
-        url: `/threads/${threadId}/comments/${commentId}`,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await request(server)
+        .delete(`/threads/${threadId}/comments/${commentId}`)
+        .set('Authorization', `Bearer ${accessToken}`);
 
       //Assert
-      const responseJson = JSON.parse(response.payload);
       expect(response.statusCode).toEqual(200);
-      expect(responseJson.status).toEqual('success');
+      expect(response.body.status).toEqual('success');
     });
 
     it('should throw 403 if user not the owner', async () => {
@@ -145,36 +126,37 @@ describe('/threads/{threadId}/comments endpoint', () => {
       };
 
       // Add account
-      await injection(server, addUserOption(userPayload));
-      await injection(server, addUserOption(notOwnerPayload));
+      await request(server).post('/users').send(userPayload);
+      await request(server).post('/users').send(notOwnerPayload);
 
       // login
-      const authOwner = await injection(server, addAuthOption(loginPayload));
-      const authNotOwner = await injection(server, addAuthOption(notOwnerLoginPayload));
+      const authOwner = await request(server).post('/authentications').send(loginPayload);
+      const authNotOwner = await request(server).post('/authentications').send(notOwnerLoginPayload);
 
-      const ownerToken = JSON.parse(authOwner.payload).data.accessToken;
-      const notOwnerToken = JSON.parse(authNotOwner.payload).data.accessToken;
+      const ownerToken = authOwner.body.data.accessToken;
+      const notOwnerToken = authNotOwner.body.data.accessToken;
 
       // add thread
-      const thread = await injection(server, addThreadOption(threadPayload, ownerToken));
-      const threadId = JSON.parse(thread.payload).data.addedThread.id;
+      const thread = await request(server)
+        .post('/threads')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send(threadPayload);
+      const threadId = thread.body.data.addedThread.id;
 
       // add comment
-      const commentAdded = await injection(server, addCommentOption(commentPayload, ownerToken, threadId));
-      const commentId = JSON.parse(commentAdded.payload).data.addedComment.id;
+      const commentAdded = await request(server)
+        .post(`/threads/${threadId}/comments`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send(commentPayload);
+      const commentId = commentAdded.body.data.addedComment.id;
 
       // Action && Assert
-      const response = await server.inject({
-        method: 'DELETE',
-        url: `/threads/${threadId}/comments/${commentId}`,
-        headers: {
-          Authorization: `Bearer ${notOwnerToken}`,
-        },
-      });
-      
-      const responseJson = JSON.parse(response.payload);
+      const response = await request(server)
+        .delete(`/threads/${threadId}/comments/${commentId}`)
+        .set('Authorization', `Bearer ${notOwnerToken}`);
+
       expect(response.statusCode).toEqual(403);
-      expect(responseJson.status).toEqual('fail');
+      expect(response.body.status).toEqual('fail');
     });
   });
 });

@@ -1,6 +1,6 @@
 # Dicoding Backend Expert - Forum API
 
-A robust and scalable forum API built with **Hapi.js** framework, implementing **Clean Architecture** principles and comprehensive testing coverage.
+A robust and scalable forum API built with **Express.js** framework, implementing **Clean Architecture** principles and comprehensive testing coverage.
 
 **Author:** Muhammad Sya'bani Falif  
 **Email:** msfalif404@gmail.com
@@ -33,9 +33,9 @@ src/
 ## 🛠️ Tech Stack
 
 - **Runtime**: Node.js
-- **Framework**: Hapi.js v20
+- **Framework**: Express.js
 - **Database**: PostgreSQL
-- **Authentication**: JWT (@hapi/jwt)
+- **Authentication**: JWT (jsonwebtoken)
 - **Password Hashing**: bcrypt
 - **Testing**: Jest
 - **Migration**: node-pg-migrate

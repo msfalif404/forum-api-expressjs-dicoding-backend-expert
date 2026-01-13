@@ -1,10 +1,15 @@
+const express = require('express');
 const ThreadHandler = require('./handler');
-const routes = require('./routes');
+const authMiddleware = require('../../middleware/auth');
 
-module.exports = {
-  name: 'threads',
-  register: async (server, { container }) => {
-    const threadHandler = new ThreadHandler(container);
-    server.route(routes(threadHandler));
-  },
+const routes = (container) => {
+    const router = express.Router();
+    const handler = new ThreadHandler(container);
+
+    router.post('/', authMiddleware, handler.postThreadHandler);
+    router.get('/:threadId', handler.getThreadDetailsHandler);
+
+    return router;
 };
+
+module.exports = routes;

@@ -1,10 +1,13 @@
+const express = require('express');
 const UsersHandler = require('./handler');
-const routes = require('./routes');
 
-module.exports = {
-  name: 'users',
-  register: async (server, { container }) => {
-    const usersHandler = new UsersHandler(container);
-    server.route(routes(usersHandler));
-  },
+const routes = (container) => {
+    const router = express.Router();
+    const handler = new UsersHandler(container);
+
+    router.post('/', handler.postUserHandler);
+
+    return router;
 };
+
+module.exports = routes;

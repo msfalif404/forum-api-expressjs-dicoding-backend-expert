@@ -3,48 +3,60 @@ const RefreshAuthenticationUseCase = require('../../../../Applications/use_case/
 const LogoutUserUseCase = require('../../../../Applications/use_case/users/LogoutUserUseCase');
 
 class AuthenticationsHandler {
-  constructor(container) {
-    this._container = container;
+    constructor(container) {
+        this._container = container;
 
-    this.postAuthenticationHandler = this.postAuthenticationHandler.bind(this);
-    this.putAuthenticationHandler = this.putAuthenticationHandler.bind(this);
-    this.deleteAuthenticationHandler = this.deleteAuthenticationHandler.bind(this);
-  }
+        this.postAuthenticationHandler = this.postAuthenticationHandler.bind(this);
+        this.putAuthenticationHandler = this.putAuthenticationHandler.bind(this);
+        this.deleteAuthenticationHandler = this.deleteAuthenticationHandler.bind(this);
+    }
 
-  async postAuthenticationHandler(request, h) {
-    const loginUserUseCase = this._container.getInstance(LoginUserUseCase.name);
-    const { accessToken, refreshToken } = await loginUserUseCase.execute(request.payload);
-    const response = h.response({
-      status: 'success',
-      data: {
-        accessToken,
-        refreshToken,
-      },
-    });
-    response.code(201);
-    return response;
-  }
+    async postAuthenticationHandler(req, res, next) {
+        try {
+            const loginUserUseCase = this._container.getInstance(LoginUserUseCase.name);
+            const { accessToken, refreshToken } = await loginUserUseCase.execute(req.body);
 
-  async putAuthenticationHandler(request) {
-    const refreshAuthenticationUseCase = this._container
-      .getInstance(RefreshAuthenticationUseCase.name);
-    const accessToken = await refreshAuthenticationUseCase.execute(request.payload);
+            res.status(201).json({
+                status: 'success',
+                data: {
+                    accessToken,
+                    refreshToken,
+                },
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 
-    return {
-      status: 'success',
-      data: {
-        accessToken,
-      },
-    };
-  }
+    async putAuthenticationHandler(req, res, next) {
+        try {
+            const refreshAuthenticationUseCase = this._container
+                .getInstance(RefreshAuthenticationUseCase.name);
+            const accessToken = await refreshAuthenticationUseCase.execute(req.body);
 
-  async deleteAuthenticationHandler(request) {
-    const logoutUserUseCase = this._container.getInstance(LogoutUserUseCase.name);
-    await logoutUserUseCase.execute(request.payload);
-    return {
-      status: 'success',
-    };
-  }
+            res.json({
+                status: 'success',
+                data: {
+                    accessToken,
+                },
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async deleteAuthenticationHandler(req, res, next) {
+        try {
+            const logoutUserUseCase = this._container.getInstance(LogoutUserUseCase.name);
+            await logoutUserUseCase.execute(req.body);
+
+            res.json({
+                status: 'success',
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = AuthenticationsHandler;

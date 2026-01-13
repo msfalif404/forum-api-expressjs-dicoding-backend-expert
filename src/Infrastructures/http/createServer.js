@@ -1,111 +1,71 @@
 require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
 
-const Hapi = require('@hapi/hapi');
-const Jwt = require('@hapi/jwt');
-const ClientError = require('../../Commons/exceptions/ClientError');
-const DomainErrorTranslator = require('../../Commons/exceptions/DomainErrorTranslator');
+// Interfaces
 const users = require('../../Interfaces/http/api/users');
 const authentications = require('../../Interfaces/http/api/authentications');
 const threads = require('../../Interfaces/http/api/threads');
 const comments = require('../../Interfaces/http/api/comments');
 const comment_replies = require('../../Interfaces/http/api/comment_replies');
 
+// Exceptions
+const ClientError = require('../../Commons/exceptions/ClientError');
+const DomainErrorTranslator = require('../../Commons/exceptions/DomainErrorTranslator');
+
 const createServer = async (container) => {
-  const server = Hapi.server({
-    host: process.env.HOST,
-    port: process.env.PORT,
-  });
+    const app = express();
+    const port = process.env.PORT || 5000;
+    const host = process.env.HOST || 'localhost';
 
-  await server.register([
-    {
-      plugin: Jwt,
-    },
-  ]);
+    // Middleware
+    app.use(cors());
+    app.use(express.json());
 
-  // mendefinisikan strategy autentikasi jwt
-  server.auth.strategy('forum_jwt', 'jwt', {
-    keys: process.env.ACCESS_TOKEN_KEY,
-    verify: {
-      aud: false,
-      iss: false,
-      sub: false,
-      maxAgeSec: process.env.ACCESS_TOKEN_AGE,
-    },
-    validate: (artifacts) => ({
-      isValid: true,
-      credentials: {
-        id: artifacts.decoded.payload.id,
-      },
-    }),
-  });
+    // Register Routes
+    app.use('/users', users(container));
+    app.use('/authentications', authentications(container));
+    app.use('/threads', threads(container));
+    app.use('/threads', comments(container)); // Comments are nested under threads
+    app.use('/threads', comment_replies(container)); // Replies are nested under threads
 
-  await server.register([
-    {
-      plugin: users,
-      options: { container },
-    },
-    {
-      plugin: authentications,
-      options: { container },
-    },
-    {
-      plugin: threads,
-      options: { container },
-    },
-    {
-      plugin: comments,
-      options: { container },
-    },
-    {
-      plugin: comment_replies,
-      options: { container },
-    },
-  ]);
-
-  server.route({
-    method: 'GET',
-    path: '/',
-    handler: () => ({
-      value: 'Hello world!',
-    }),
-  });
-
-  server.ext('onPreResponse', (request, h) => {
-    // mendapatkan konteks response dari request
-    const { response } = request;
-    if (response instanceof Error) {
-      // bila response tersebut error, tangani sesuai kebutuhan
-      const translatedError = DomainErrorTranslator.translate(response);
-
-      // penanganan client error secara internal.
-      if (translatedError instanceof ClientError) {
-        const newResponse = h.response({
-          status: 'fail',
-          message: translatedError.message,
+    app.get('/', (req, res) => {
+        res.json({
+            value: 'Hello world!',
         });
-        newResponse.code(translatedError.statusCode);
-        return newResponse;
-      }
+    });
 
-      // mempertahankan penanganan client error oleh hapi secara native, seperti 404, etc.
-      if (!translatedError.isServer) {
-        return h.continue;
-      }
+    // Error Handling Middleware
+    app.use((error, req, res, next) => {
+        const translatedError = DomainErrorTranslator.translate(error);
 
-      // penanganan server error sesuai kebutuhan
-      const newResponse = h.response({
-        status: 'error',
-        message: 'terjadi kegagalan pada server kami',
-      });
-      newResponse.code(500);
-      return newResponse;
-    }
+        if (translatedError instanceof ClientError) {
+            return res.status(translatedError.statusCode).json({
+                status: 'fail',
+                message: translatedError.message,
+            });
+        }
 
-    // jika bukan error, lanjutkan dengan response sebelumnya (tanpa terintervensi)
-    return h.continue;
-  });
 
-  return server;
+
+        console.log(error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'terjadi kegagalan pada server kami',
+        });
+    });
+
+    // Add a start method to match the Hapi interface for app.js convenience
+    app.start = async () => {
+        return new Promise((resolve) => {
+            const server = app.listen(port, host, () => {
+                app.info = { uri: `http://${host}:${port}` };
+                resolve(server);
+            });
+        });
+    };
+
+    return app;
 };
 
 module.exports = createServer;

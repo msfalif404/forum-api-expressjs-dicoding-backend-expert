@@ -1,11 +1,4 @@
-const {
-  injection,
-  addUserOption,
-  addThreadOption,
-  addAuthOption,
-  addCommentOption,
-  addCommentReplyOption,
-} = require('../../../../tests/ServerInjectionFunctionHelper');
+const request = require('supertest');
 const ThreadTableTestHelper = require('../../../../tests/ThreadTableTestHelper');
 const UsersTableTestHelper = require('../../../../tests/UsersTableTestHelper');
 const pool = require('../../database/postgres/pool');
@@ -32,46 +25,34 @@ describe('/threads endpoint', () => {
       };
 
       // Add account
-      await server.inject({
-        method: 'POST',
-        url: '/users',
-        payload: {
+      await request(server)
+        .post('/users')
+        .send({
           username: 'dicoding',
           password: 'secret',
           fullname: 'Dicoding Indonesia',
-        },
-      });
+        });
 
-      const login = {
-        username: 'dicoding',
-        password: 'secret',
-      };
       // login
-      const auth = await server.inject({
-        method: 'POST',
-        url: '/authentications',
-        payload: login,
-      });
+      const auth = await request(server)
+        .post('/authentications')
+        .send({
+          username: 'dicoding',
+          password: 'secret',
+        });
 
-      const {
-        data: { accessToken },
-      } = JSON.parse(auth.payload);
+      const { accessToken } = auth.body.data;
 
       // Action
-      const response = await server.inject({
-        method: 'POST',
-        url: '/threads',
-        payload: requestPayload,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await request(server)
+        .post('/threads')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send(requestPayload);
 
       //Assert
-      const responseJson = JSON.parse(response.payload);
       expect(response.statusCode).toEqual(201);
-      expect(responseJson.status).toEqual('success');
-      expect(responseJson.data.addedThread).toBeDefined();
+      expect(response.body.status).toEqual('success');
+      expect(response.body.data.addedThread).toBeDefined();
     });
 
     it('should response 401 if no authorization', async () => {
@@ -84,19 +65,15 @@ describe('/threads endpoint', () => {
       const accessToken = 'wrongtoken';
 
       // Action
-      const response = await server.inject({
-        method: 'POST',
-        url: '/threads',
-        payload: requestPayload,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await request(server)
+        .post('/threads')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send(requestPayload);
 
       // Assert
-      const responseJson = JSON.parse(response.payload);
+      // 401 Unauthorized in our new middleware throws AuthenticationError which maps to 401
       expect(response.statusCode).toEqual(401);
-      expect(responseJson.error).toEqual('Unauthorized');
+      expect(response.body.message).toEqual('Invalid token');
     });
 
     it('should response 400 if bad payload', async () => {
@@ -106,109 +83,94 @@ describe('/threads endpoint', () => {
         title: 'First Thread',
       };
       // Add account
-      await server.inject({
-        method: 'POST',
-        url: '/users',
-        payload: {
+      await request(server)
+        .post('/users')
+        .send({
           username: 'dicoding',
           password: 'secret',
           fullname: 'Dicoding Indonesia',
-        },
-      });
+        });
 
-      const login = {
-        username: 'dicoding',
-        password: 'secret',
-      };
       // login
-      const auth = await server.inject({
-        method: 'POST',
-        url: '/authentications',
-        payload: login,
-      });
+      const auth = await request(server)
+        .post('/authentications')
+        .send({
+          username: 'dicoding',
+          password: 'secret',
+        });
 
-      const {
-        data: { accessToken },
-      } = JSON.parse(auth.payload);
+      const { accessToken } = auth.body.data;
 
       // Action
-      const response = await server.inject({
-        method: 'POST',
-        url: '/threads',
-        payload: requestPayload,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await request(server)
+        .post('/threads')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send(requestPayload);
 
       // Assert
-      const responseJson = JSON.parse(response.payload);
       expect(response.statusCode).toEqual(400);
-      expect(responseJson.status).toEqual('fail');
-      expect(responseJson.message).toEqual('cannot make a new thread, payload not correct');
+      expect(response.body.status).toEqual('fail');
+      expect(response.body.message).toEqual('cannot make a new thread, payload not correct');
     });
   });
 
   describe('when GET /threads/{threadsId}', () => {
     it('it should display the right thread details', async () => {
       // Arrange
-
-      const commentPayload = {
-        content: 'This is comment',
-      };
-
-      const threadPayload = {
-        title: 'First Thread',
-        body: 'This is first thread',
-      };
-
-      const userPayload = {
-        username: 'dicoding',
-        password: 'secret',
-        fullname: 'Dicoding Indonesia',
-      };
-
-      const loginPayload = {
-        username: 'dicoding',
-        password: 'secret',
-      };
-
-      const requestPayload = {
-        content: 'This is reply',
-      };
-
-      const mockThreadDetails = {};
-
       const server = await createServer(container);
 
       // Add account
-      await injection(server, addUserOption(userPayload));
+      await request(server)
+        .post('/users')
+        .send({
+          username: 'dicoding',
+          password: 'secret',
+          fullname: 'Dicoding Indonesia',
+        });
       // login
-      const auth = await injection(server, addAuthOption(loginPayload));
-      const authToken = JSON.parse(auth.payload)?.data?.accessToken;
+      const auth = await request(server)
+        .post('/authentications')
+        .send({
+          username: 'dicoding',
+          password: 'secret',
+        });
+      const authToken = auth.body.data.accessToken;
 
       // add thread
-      const thread = await injection(server, addThreadOption(threadPayload, authToken));
-      const threadId = JSON.parse(thread.payload)?.data?.addedThread.id;
+      const thread = await request(server)
+        .post('/threads')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          title: 'First Thread',
+          body: 'This is first thread',
+        });
+      const threadId = thread.body.data.addedThread.id;
 
       // add comment
-      const comment = await injection(server, addCommentOption(commentPayload, authToken, threadId));
-      const commentId = JSON.parse(comment.payload)?.data?.addedComment.id;
+      const comment = await request(server)
+        .post(`/threads/${threadId}/comments`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          content: 'This is comment',
+        });
+      const commentId = comment.body.data.addedComment.id;
 
       // add comment replies
-      await injection(server, addCommentReplyOption(requestPayload, authToken, threadId, commentId));
+      await request(server)
+        .post(`/threads/${threadId}/comments/${commentId}/replies`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          content: 'This is reply',
+        });
 
       // Action
-      const response = await server.inject({
-        method: 'GET',
-        url: `/threads/${threadId}`,
-      });
+      const response = await request(server)
+        .get(`/threads/${threadId}`);
 
       //Assert
-      const responseJson = JSON.parse(response.payload);
       expect(response.statusCode).toEqual(200);
-      expect(responseJson.status).toEqual('success');
-      expect(responseJson.data.thread).toBeDefined();
+      expect(response.body.status).toEqual('success');
+      expect(response.body.data.thread).toBeDefined();
     });
   });
 });

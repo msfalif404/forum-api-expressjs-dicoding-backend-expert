@@ -1,10 +1,15 @@
-const routes = require('./routes');
+const express = require('express');
 const AuthenticationsHandler = require('./handler');
 
-module.exports = {
-  name: 'authentications',
-  register: async (server, { container }) => {
-    const authenticationsHandler = new AuthenticationsHandler(container);
-    server.route(routes(authenticationsHandler));
-  },
+const routes = (container) => {
+    const router = express.Router();
+    const handler = new AuthenticationsHandler(container);
+
+    router.post('/', handler.postAuthenticationHandler);
+    router.put('/', handler.putAuthenticationHandler);
+    router.delete('/', handler.deleteAuthenticationHandler);
+
+    return router;
 };
+
+module.exports = routes;

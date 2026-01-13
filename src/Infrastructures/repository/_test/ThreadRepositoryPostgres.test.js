@@ -11,6 +11,7 @@ describe('ThreadRepositoryPostgres', () => {
   const userId = 'user-123';
 
   beforeAll(async () => {
+    await UsersTableTestHelper.cleanTable();
     await UsersTableTestHelper.addUser({ id: userId });
   });
 

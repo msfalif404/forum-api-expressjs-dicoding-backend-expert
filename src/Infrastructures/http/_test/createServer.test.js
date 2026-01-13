@@ -1,3 +1,4 @@
+const request = require('supertest');
 const createServer = require('../createServer');
 
 describe('HTTP server', () => {
@@ -6,10 +7,7 @@ describe('HTTP server', () => {
     const server = await createServer({});
 
     // Action
-    const response = await server.inject({
-      method: 'GET',
-      url: '/unregisteredRoute',
-    });
+    const response = await request(server).get('/unregisteredRoute');
 
     // Assert
     expect(response.statusCode).toEqual(404);
@@ -22,20 +20,18 @@ describe('HTTP server', () => {
       fullname: 'Dicoding Indonesia',
       password: 'super_secret',
     };
-    const server = await createServer({}); // fake injection
+    const server = await createServer({}); // fake injection without real container causing error in users route which is good for 500 test
 
     // Action
-    const response = await server.inject({
-      method: 'POST',
-      url: '/users',
-      payload: requestPayload,
-    });
+    const response = await request(server)
+      .post('/users')
+      .send(requestPayload);
 
     // Assert
-    const responseJson = JSON.parse(response.payload);
+    // Expect 500 because container is empty and instantiation of handler fails or use case resolution fails
     expect(response.statusCode).toEqual(500);
-    expect(responseJson.status).toEqual('error');
-    expect(responseJson.message).toEqual('terjadi kegagalan pada server kami');
+    expect(response.body.status).toEqual('error');
+    expect(response.body.message).toEqual('terjadi kegagalan pada server kami');
   });
 
   describe('when GET /', () => {
@@ -43,14 +39,10 @@ describe('HTTP server', () => {
       // Arrange
       const server = await createServer({});
       // Action
-      const response = await server.inject({
-        method: 'GET',
-        url: '/',
-      });
+      const response = await request(server).get('/');
       // Assert
-      const responseJson = JSON.parse(response.payload);
       expect(response.statusCode).toEqual(200);
-      expect(responseJson.value).toEqual('Hello world!');
+      expect(response.body.value).toEqual('Hello world!');
     });
   });
 });
