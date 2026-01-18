@@ -46,7 +46,7 @@ src/
 1. Clone the repository:
 ```bash
 git clone <your-repo-url>
-cd Hepi
+change your directory
 ```
 
 2. Install dependencies:
